@@ -247,11 +247,11 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">{{ $t('tin') }}</span>
-            <span class="detail-value">{{ selectedUser && selectedUser.tin || '-' }}</span>
+            <span class="detail-value">{{ getUserTin(selectedUser) }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">{{ $t('phone') }}</span>
-            <span class="detail-value">{{ selectedUser && selectedUser.phone_number || '-' }}</span>
+            <span class="detail-value">{{ getUserPhone(selectedUser) }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">{{ $t('email') }}</span>
@@ -462,6 +462,29 @@ export default {
       if (!cert || !cert.organization || !cert.organization.region) return '—'
       const r = cert.organization.region
       return r.name_uz || r.name_ru || r.name_en || '—'
+    }
+
+    // users jadvalida bo'sh bo'lsa, sertifikatga bog'liq application dan oladi
+    const getUserPhone = (user) => {
+      if (!user) return '-'
+      if (user.phone_number) return user.phone_number
+      const certs = user.certificates || []
+      for (const cert of certs) {
+        const app = cert.application
+        if (app && app.phone_number) return app.phone_number
+      }
+      return '-'
+    }
+
+    const getUserTin = (user) => {
+      if (!user) return '-'
+      if (user.tin) return user.tin
+      const certs = user.certificates || []
+      for (const cert of certs) {
+        const app = cert.application
+        if (app && app.tin) return app.tin
+      }
+      return '-'
     }
 
     let debounceTimer
@@ -845,6 +868,8 @@ export default {
         pickMainCert,
         getOrganizationName,
         getRegionName,
+        getUserPhone,
+        getUserTin,
       applyFilters,
       clearFilters,
       showCertDialog,
