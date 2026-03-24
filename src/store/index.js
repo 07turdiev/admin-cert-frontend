@@ -121,13 +121,14 @@ const store = createStore({
     // Fetch certified users
     async fetchCertifiedUsers({ commit, getters }, options = {}) {
       try {
-        const { searchWord, region_id, organization_id, start_date, end_date, quarter_id, offset = 0, limit = 10 } = options
+        const { searchWord, region_id, organization_id, start_date, end_date, quarter_id, year, offset = 0, limit = 10 } = options
 
         // Build query params
         const params = {}
         if (searchWord) params.searchWord = searchWord
         if (region_id) params.region_id = region_id
         if (organization_id) params.organization_id = organization_id
+        if (year) params.year = year
 
         // Format dates as dd.MM.yyyy if Date objects provided
         const formatDDMMYYYY = (d) => {
@@ -192,14 +193,15 @@ const store = createStore({
     // Fetch applications with filters
     async fetchApplications({ commit, getters }, options = {}) {
       try {
-        const { searchWord, status, region_id, offset = 0, limit = 10 } = options
-        
+        const { searchWord, status, region_id, year, offset = 0, limit = 10 } = options
+
         // Build query params
         const params = { token: getters.getToken }
         if (searchWord) params.searchWord = searchWord
         if (status) params.status = status
         if (region_id) params.region_id = region_id
-        
+        if (year) params.year = year
+
         // Add pagination params
         params.offset = offset
         params.limit = limit

@@ -68,10 +68,20 @@
           </div>
           
           <div class="filter-container">
-            <Dropdown v-model="filters.status" 
-                      :options="statusOptions" 
+            <Dropdown v-model="filters.year"
+                      :options="yearOptions"
+                      :placeholder="$t('all_years')"
+                      optionLabel="label"
+                      optionValue="value"
+                      @change="applyFilters"
+                      class="p-inputtext-sm filter-dropdown" />
+          </div>
+
+          <div class="filter-container">
+            <Dropdown v-model="filters.status"
+                      :options="statusOptions"
                       :placeholder="$t('status')"
-                      optionLabel="label" 
+                      optionLabel="label"
                       optionValue="value"
                       @change="applyFilters"
                       class="p-inputtext-sm filter-dropdown" />
@@ -123,6 +133,11 @@
           <Column field="organization.name_uz" :header="$t('organization_name')">
             <template #body="slotProps">
               {{ slotProps.data && slotProps.data.organization && slotProps.data.organization.name_uz || '-' }}
+            </template>
+          </Column>
+          <Column :header="$t('year')">
+            <template #body="slotProps">
+              {{ getApplicationYear(slotProps.data) }}
             </template>
           </Column>
           <Column :header="$t('quarter')">
@@ -278,6 +293,10 @@
                 <span class="detail-value">{{ formatDate(selectedApplication.updatedAt) }}</span>
               </div>
               <div class="detail-item">
+                <span class="detail-label">{{ $t('year') }}</span>
+                <span class="detail-value">{{ getApplicationYear(selectedApplication) }}</span>
+              </div>
+              <div class="detail-item">
                 <span class="detail-label">{{ $t('quarter') }}</span>
                 <span class="detail-value">{{ getQuarterLabel(selectedApplication) }}</span>
               </div>
@@ -373,9 +392,20 @@ export default {
     const filters = ref({
       searchWord: '',
       status: null,
-      region_id: null
+      region_id: null,
+      year: new Date().getFullYear()
     })
-    
+
+    // Year options for dropdown
+    const currentYear = new Date().getFullYear()
+    const yearOptions = [
+      { label: i18n.t('all_years'), value: null },
+      ...Array.from({ length: currentYear - 2023 }, (_, i) => {
+        const y = 2024 + i
+        return { label: String(y), value: y }
+      })
+    ]
+
     // Status options for dropdown
     const statusOptions = [
       { label: i18n.t('all_statuses'), value: null },
@@ -411,13 +441,14 @@ export default {
     // Apply filters and fetch data
     const applyFilters = async () => {
       loading.value = true
-      
+
       const offset = first.value
-      
-      const result = await store.dispatch('fetchApplications', { 
+
+      const result = await store.dispatch('fetchApplications', {
         searchWord: filters.value.searchWord,
         status: filters.value.status,
         region_id: filters.value.region_id,
+        year: filters.value.year,
         offset: offset,
         limit: rowsPerPage.value
       })
@@ -440,7 +471,8 @@ export default {
       filters.value = {
         searchWord: '',
         status: null,
-        region_id: null
+        region_id: null,
+        year: new Date().getFullYear()
       }
       first.value = 0
       applyFilters()
@@ -462,8 +494,9 @@ export default {
         quarters.value = []
       }
       
-      // Fetch applications with pagination
+      // Fetch applications with pagination (default to current year)
       const result = await store.dispatch('fetchApplications', {
+        year: filters.value.year,
         offset: 0,
         limit: rowsPerPage.value
       })
@@ -648,6 +681,18 @@ export default {
       }
     }
     
+    const getApplicationYear = (app) => {
+      if (!app) return '-'
+      // Try nested quarter object
+      if (app.quarter && app.quarter.date) return new Date(app.quarter.date).getFullYear()
+      // Try quarter map
+      if (app.quarter_id && quarterMap.value.has(app.quarter_id)) {
+        const q = quarterMap.value.get(app.quarter_id)
+        if (q && q.date) return new Date(q.date).getFullYear()
+      }
+      return '-'
+    }
+
     const getQuarterLabel = (app) => {
       if (!app) return '-'
       // Prefer nested quarter object name if provided by backend
@@ -760,6 +805,7 @@ export default {
       filters,
       statusOptions,
       regionOptions,
+      yearOptions,
       applyFilters,
       applyFiltersDebounced,
       clearFilters,
@@ -768,7 +814,8 @@ export default {
       getAttemptLabel,
       formatDateTime,
       fetchTestResults,
-      getQuarterLabel
+      getQuarterLabel,
+      getApplicationYear
     }
   }
 }

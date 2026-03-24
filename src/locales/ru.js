@@ -50,5 +50,11 @@ export default {
   actions: 'Действия',
   
   // Fetch errors
-  fetch_users_failed: 'Ошибка при загрузке пользователей'
+  fetch_users_failed: 'Ошибка при загрузке пользователей',
+
+  // Filters
+  all_years: 'Все годы',
+  year: 'Год',
+  all_statuses: 'Все статусы',
+  all_regions: 'Все регионы'
 } 

@@ -34,32 +34,43 @@
           </div>
           
           <div class="filter-container">
-            <Calendar v-model="filters.start_date" 
+            <Dropdown v-model="filters.year"
+                      :options="yearOptions"
+                      :placeholder="$t('all_years')"
+                      optionLabel="label"
+                      optionValue="value"
+                      @change="onYearChange"
+                      :loading="quartersLoading"
+                      class="p-inputtext-sm filter-dropdown" />
+          </div>
+
+          <div class="filter-container">
+            <Dropdown v-model="filters.quarter_id"
+                      :options="quarterOptions"
+                      :placeholder="$t('quarter')"
+                      optionLabel="label"
+                      optionValue="value"
+                      @change="applyFilters"
+                      :loading="quartersLoading"
+                      class="p-inputtext-sm filter-dropdown" />
+          </div>
+
+          <div class="filter-container">
+            <Calendar v-model="filters.start_date"
                       :placeholder="$t('start_date')"
                       dateFormat="dd.mm.yy"
                       :showIcon="true"
                       @date-select="applyFilters"
                       class="p-inputtext-sm filter-date" />
           </div>
-          
+
           <div class="filter-container">
-            <Calendar v-model="filters.end_date" 
+            <Calendar v-model="filters.end_date"
                       :placeholder="$t('end_date')"
                       dateFormat="dd.mm.yy"
                       :showIcon="true"
                       @date-select="applyFilters"
                       class="p-inputtext-sm filter-date" />
-          </div>
-          
-          <div class="filter-container">
-            <Dropdown v-model="filters.quarter_id" 
-                      :options="quarterOptions" 
-                      :placeholder="$t('quarter')"
-                      optionLabel="label" 
-                      optionValue="value"
-                      @change="applyFilters"
-                      :loading="quartersLoading"
-                      class="p-inputtext-sm filter-dropdown" />
           </div>
           
           <div class="filter-container">
@@ -378,9 +389,24 @@ export default {
       region_id: null,
       start_date: null,
       end_date: null,
+      year: new Date().getFullYear(),
       quarter_id: null
     })
-    
+
+    // Year options from available quarters
+    const yearOptions = computed(() => {
+      const options = [{ label: i18n.t('all_years'), value: null }]
+      if (quarters.value && quarters.value.length) {
+        const years = [...new Set(
+          quarters.value
+            .map(q => q.date ? new Date(q.date).getFullYear() : null)
+            .filter(y => y !== null)
+        )].sort((a, b) => b - a)
+        years.forEach(y => options.push({ label: String(y), value: y }))
+      }
+      return options
+    })
+
     // Region options for dropdown, built from fetched regions
     const regionOptions = computed(() => {
       const options = [{ label: i18n.t('all_regions'), value: null }]
@@ -395,19 +421,24 @@ export default {
       return options
     })
     
-    // Quarter options for dropdown, built from fetched quarters
+    // Quarter options filtered by selected year
     const quarterOptions = computed(() => {
       const options = [{ label: i18n.t('all_quarters'), value: null }]
       if (quarters.value && quarters.value.length) {
-        quarters.value.forEach(quarter => {
-          options.push({
-            label: quarter.name,
-            value: quarter.quarter_id
-          })
+        const list = filters.value.year
+          ? quarters.value.filter(q => q.date && new Date(q.date).getFullYear() === filters.value.year)
+          : quarters.value
+        list.forEach(quarter => {
+          options.push({ label: quarter.name, value: quarter.quarter_id })
         })
       }
       return options
     })
+
+    const onYearChange = () => {
+      filters.value.quarter_id = null
+      applyFilters()
+    }
 
     // Helper: pick most recent certificate by given_date
     const pickMainCert = (certs) => {
@@ -452,6 +483,7 @@ export default {
       filters.value.region_id = null
       filters.value.start_date = null
       filters.value.end_date = null
+      filters.value.year = new Date().getFullYear()
       filters.value.quarter_id = null
       first.value = 0
       fetchUsers()
@@ -483,6 +515,7 @@ export default {
           region_id: filters.value.region_id,
           start_date: filters.value.start_date,
           end_date: filters.value.end_date,
+          year: filters.value.year,
           quarter_id: filters.value.quarter_id
         })
         
@@ -806,7 +839,9 @@ export default {
       quarters,
       filters,
       regionOptions,
+      yearOptions,
       quarterOptions,
+      onYearChange,
         pickMainCert,
         getOrganizationName,
         getRegionName,

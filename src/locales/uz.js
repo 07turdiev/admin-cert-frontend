@@ -40,6 +40,8 @@ export default {
   clear_filters: 'Filtrlarni tozalash',
   all_statuses: 'Barcha holatlar',
   all_regions: 'Barcha viloyatlar',
+  all_years: 'Barcha yillar',
+  year: 'Yil',
   region: 'Viloyat',
   
   // Application Details
