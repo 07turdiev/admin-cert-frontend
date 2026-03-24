@@ -215,9 +215,13 @@ export default {
       
       saving.value = true
       try {
+        const rawDate = quarterForm.value.date
+        const localDateStr = rawDate instanceof Date
+          ? `${rawDate.getFullYear()}-${String(rawDate.getMonth() + 1).padStart(2, '0')}-${String(rawDate.getDate()).padStart(2, '0')}`
+          : rawDate
         const quarterData = {
           name: quarterForm.value.name.trim(),
-          date: quarterForm.value.date,
+          date: localDateStr,
           status: quarterForm.value.status
         }
         
@@ -328,8 +332,13 @@ export default {
     
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A'
-      const date = new Date(dateString)
-      return date.toLocaleDateString()
+      // Faqat sana qismini olamiz (timezone ta'sirini oldini olish uchun)
+      const part = String(dateString).substring(0, 10) // "YYYY-MM-DD"
+      if (part.length === 10) {
+        const [y, m, d] = part.split('-')
+        return `${d}.${m}.${y}`
+      }
+      return new Date(dateString).toLocaleDateString()
     }
     
     onMounted(async () => {
