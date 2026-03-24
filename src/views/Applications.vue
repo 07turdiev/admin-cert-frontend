@@ -125,6 +125,11 @@
               {{ slotProps.data && slotProps.data.organization && slotProps.data.organization.name_uz || '-' }}
             </template>
           </Column>
+          <Column :header="$t('quarter')">
+            <template #body="slotProps">
+              {{ getQuarterLabel(slotProps.data) }}
+            </template>
+          </Column>
           <Column field="status" :header="$t('status')" sortable>
             <template #body="slotProps">
               <span class="status-badge" :class="slotProps.data.status">
@@ -272,6 +277,37 @@
                 <span class="detail-label">{{ $t('updated') }}</span>
                 <span class="detail-value">{{ formatDate(selectedApplication.updatedAt) }}</span>
               </div>
+              <div class="detail-item">
+                <span class="detail-label">{{ $t('quarter') }}</span>
+                <span class="detail-value">{{ getQuarterLabel(selectedApplication) }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Test Results Section (custom, no el-table) -->
+          <div class="detail-section">
+            <h3>{{ $t('Test Results') }}</h3>
+            <div v-if="Array.isArray(groupedTestResultsArray) && groupedTestResultsArray.length">
+              <div v-for="result in groupedTestResultsArray" :key="result.test_answer_id" class="test-result-card">
+                <div class="test-result-row">
+                  <span class="test-result-label">{{ $t('Topic') }}:</span>
+                  <span class="test-result-value">{{ result.topic }}</span>
+                </div>
+                <div class="test-result-row">
+                  <span class="test-result-label">{{ $t('Attempt') }}:</span>
+                  <span class="test-result-value">{{ getAttemptLabel(result.attemptNumber) }}</span>
+                </div>
+                <div class="test-result-row">
+                  <span class="test-result-label">{{ $t('Score') }}:</span>
+                  <span class="test-result-value">{{ result.number_of_correct_answers }} / {{ result.number_of_questions }}</span>
+                </div>
+                <div class="test-result-row">
+                  <span class="test-result-label">{{ $t('Date & Time') }}:</span>
+                  <span class="test-result-value">{{ formatDateTime(result.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else class="no-test-results">
+              <span>{{ $t('No test results yet') }}</span>
             </div>
           </div>
         </div>
@@ -290,7 +326,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useToast } from 'primevue/usetoast'
 
@@ -304,6 +340,19 @@ export default {
     const loading = ref(true)
     const regionsLoading = ref(true)
     const applications = ref([])
+    const quarters = ref([])
+    const quarterMap = computed(() => {
+      const map = new Map()
+      if (Array.isArray(quarters.value)) {
+        quarters.value.forEach(q => {
+          if (q && (q.quarter_id || q.id)) {
+            const id = q.quarter_id || q.id
+            map.set(id, q)
+          }
+        })
+      }
+      return map
+    })
     const stats = computed(() => store.getters.getApplicationStats)
     const regions = computed(() => store.state.regions)
     
@@ -404,6 +453,14 @@ export default {
       // Fetch regions
       await store.dispatch('fetchRegions')
       regionsLoading.value = false
+      
+      // Fetch quarters for mapping quarter_id -> name/date
+      try {
+        const qRes = await store.dispatch('fetchQuarters', { offset: 0, limit: 1000 })
+        quarters.value = (qRes && qRes.data) ? qRes.data : []
+      } catch (e) {
+        quarters.value = []
+      }
       
       // Fetch applications with pagination
       const result = await store.dispatch('fetchApplications', {
@@ -506,7 +563,10 @@ export default {
     const createCertificate = async (application) => {
       loading.value = true
       try {
-        const certificateData = await store.dispatch('createCertificate', application.application_id)
+        const certificateData = await store.dispatch('createCertificate', { 
+          applicationId: application.application_id,
+          quarterId: application.quarter_id 
+        })
         
         if (certificateData) {
           // Immediately update the local application status
@@ -577,7 +637,6 @@ export default {
           })
         }
       } catch (error) {
-        console.error('Download error:', error)
         toast.add({
           severity: 'error',
           summary: i18n.t('error'),
@@ -589,11 +648,97 @@ export default {
       }
     }
     
+    const getQuarterLabel = (app) => {
+      if (!app) return '-'
+      // Prefer nested quarter object name if provided by backend
+      if (app.quarter && app.quarter.name) return app.quarter.name
+      // Fallback: try quarter_date or date if exists
+      if (app.quarter && app.quarter.date) return formatDate(app.quarter.date)
+      if (app.quarter_date) return formatDate(app.quarter_date)
+      // Try map by quarter_id
+      if (app.quarter_id && quarterMap.value.has(app.quarter_id)) {
+        const q = quarterMap.value.get(app.quarter_id)
+        if (q && q.name) return q.name
+        if (q && q.date) return formatDate(q.date)
+      }
+      // Fallback to quarter_id
+      if (app.quarter_id) return `#${app.quarter_id}`
+      return '-'
+    }
+
+    const groupedTestResults = ref([])
+    const groupedTestResultsArray = computed(() => Array.isArray(groupedTestResults.value) ? groupedTestResults.value : [])
+    const getAttemptLabel = (num) => {
+      if (num === 1) return 'First Attempt';
+      if (num === 2) return 'Second Attempt';
+      if (num === 3) return 'Third Attempt';
+      return `${num}th Attempt`;
+    }
+    const formatDateTime = (dateString) => {
+      if (!dateString) return '-';
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU');
+    }
+    const fetchTestResults = async (user_id) => {
+      if (!user_id) {
+        groupedTestResults.value = [];
+        return;
+      }
+      
+      try {
+        const res = await store.dispatch('adminApiRequest', {
+          url: '/api/admin/test/results',
+          params: { user_id }
+        });
+        const testResults = res.result || [];
+        // Group by topic, keep only up to 3 attempts per topic, add attemptNumber and topic name
+        const grouped = [];
+        const topicMap = {};
+        for (const row of testResults) {
+          const topicId = row.test_topic_id;
+          if (!topicMap[topicId]) topicMap[topicId] = [];
+          if (topicMap[topicId].length < 3) topicMap[topicId].push(row);
+        }
+        Object.values(topicMap).forEach(attemptsArr => {
+          attemptsArr.forEach((row, idx) => {
+            grouped.push({
+              ...row,
+              attemptNumber: idx + 1,
+              topic: row.test_topic && row.test_topic.topic_name ? row.test_topic.topic_name : (row.test_topic && row.test_topic.name ? row.test_topic.name : row.test_topic_id)
+            });
+          });
+        });
+       
+        groupedTestResults.value = grouped;
+      } catch (e) {
+        groupedTestResults.value = [];
+      }
+    }
+    function extractUserId(obj) {
+      if (!obj) return null;
+      if (obj.user_id) return obj.user_id;
+      if (obj.user && obj.user.user_id) return obj.user.user_id;
+      if (obj.volunteer && obj.volunteer.user_id) return obj.volunteer.user_id;
+      return null;
+    }
+    // Watch for dialog open and selectedApplication change
+    watch([showDetailDialog, selectedApplication], async([dialog, app]) => {
+      const userId = extractUserId(app);
+      if (dialog && userId) {
+      
+        await fetchTestResults(userId);
+      } else {
+        groupedTestResults.value = [];
+      }
+    })
+    
     return {
       loading,
       regionsLoading,
       applications,
       stats,
+      quarters,
+      quarterMap,
       // Pagination
       first,
       rowsPerPage,
@@ -617,7 +762,13 @@ export default {
       regionOptions,
       applyFilters,
       applyFiltersDebounced,
-      clearFilters
+      clearFilters,
+      groupedTestResults,
+      groupedTestResultsArray,
+      getAttemptLabel,
+      formatDateTime,
+      fetchTestResults,
+      getQuarterLabel
     }
   }
 }
@@ -987,5 +1138,30 @@ export default {
   .filter-container {
     width: 100%;
   }
+}
+
+.test-result-card {
+  background: #f8fafc;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.test-result-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.test-result-label {
+  font-weight: 600;
+  color: #334155;
+  min-width: 90px;
+}
+.test-result-value {
+  color: #1e293b;
+}
+.no-test-results {
+  color: #64748b;
+  padding: 1rem 0;
 }
 </style> 

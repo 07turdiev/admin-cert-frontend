@@ -34,6 +34,35 @@
           </div>
           
           <div class="filter-container">
+            <Calendar v-model="filters.start_date" 
+                      :placeholder="$t('start_date')"
+                      dateFormat="dd.mm.yy"
+                      :showIcon="true"
+                      @date-select="applyFilters"
+                      class="p-inputtext-sm filter-date" />
+          </div>
+          
+          <div class="filter-container">
+            <Calendar v-model="filters.end_date" 
+                      :placeholder="$t('end_date')"
+                      dateFormat="dd.mm.yy"
+                      :showIcon="true"
+                      @date-select="applyFilters"
+                      class="p-inputtext-sm filter-date" />
+          </div>
+          
+          <div class="filter-container">
+            <Dropdown v-model="filters.quarter_id" 
+                      :options="quarterOptions" 
+                      :placeholder="$t('quarter')"
+                      optionLabel="label" 
+                      optionValue="value"
+                      @change="applyFilters"
+                      :loading="quartersLoading"
+                      class="p-inputtext-sm filter-dropdown" />
+          </div>
+          
+          <div class="filter-container">
             <Button icon="pi pi-filter-slash" 
                    :label="$t('clear_filters')" 
                    class="p-button-outlined p-button-sm"
@@ -95,6 +124,19 @@
               <div v-else class="no-certificates">
                 {{ $t('no_certificates') }}
               </div>
+            </template>
+          </Column>
+          <Column :header="$t('actions')">
+            <template #body="slotProps">
+              <Button
+                class="p-button-danger p-button-text p-button-sm delete-btn"
+                icon="pi pi-trash"
+                :label="$t('delete') || 'O‘chirish'"
+                :loading="isDeleting(slotProps.data.user_id)"
+                :disabled="isDeleting(slotProps.data.user_id)"
+                @click.stop="onDeleteUser(slotProps.data)"
+                v-tooltip.top="{ value: 'Foydalanuvchi va bog‘liq ma’lumotlar o‘chiriladi.' }"
+              />
             </template>
           </Column>
         </DataTable>
@@ -188,17 +230,39 @@
                 <span class="detail-label">{{ $t('surname') }}</span>
                 <span class="detail-value">{{ selectedUser.sur_name }}</span>
               </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('middle_name') }}</span>
+            <span class="detail-value">{{ selectedUser.middle_name || selectedUser.mid_name || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('tin') }}</span>
+            <span class="detail-value">{{ selectedUser && selectedUser.tin || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('phone') }}</span>
+            <span class="detail-value">{{ selectedUser && selectedUser.phone_number || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('email') }}</span>
+            <span class="detail-value">{{ selectedUser && selectedUser.email || '-' }}</span>
+          </div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3>{{ $t('organization_information') }}</h3>
+            <div class="detail-grid">
               <div class="detail-item">
-                <span class="detail-label">{{ $t('middle_name') }}</span>
-                <span class="detail-value">{{ selectedUser.middle_name || '-' }}</span>
+                <span class="detail-label">{{ $t('organization_name') }}</span>
+                <span class="detail-value">{{ getOrganizationName(pickMainCert(selectedUser && selectedUser.certificates)) }}</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">{{ $t('phone') }}</span>
-                <span class="detail-value">{{ selectedUser.phone_number }}</span>
+                <span class="detail-label">{{ $t('region') }}</span>
+                <span class="detail-value">{{ getRegionName(pickMainCert(selectedUser && selectedUser.certificates)) }}</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">{{ $t('email') }}</span>
-                <span class="detail-value">{{ selectedUser.email || '-' }}</span>
+                <span class="detail-label">{{ $t('inn') }}</span>
+                <span class="detail-value">{{ (pickMainCert(selectedUser && selectedUser.certificates) && pickMainCert(selectedUser && selectedUser.certificates).organization && pickMainCert(selectedUser && selectedUser.certificates).organization.inn) || '-' }}</span>
               </div>
             </div>
           </div>
@@ -235,6 +299,31 @@
               </div>
             </div>
           </div>
+          <div class="detail-section">
+            <h3>{{ $t('Test Results') }}</h3>
+            <DataTable v-if="groupedTestResults.length" :value="groupedTestResults" class="test-results-table">
+              <Column field="topic" :header="$t('Topic')" />
+              <Column :header="$t('Attempt')">
+                <template #body="slotProps">
+                  {{ getAttemptLabel(slotProps.data.attemptNumber) }}
+                </template>
+              </Column>
+              <Column :header="$t('Score')">
+                <template #body="slotProps">
+                  {{ slotProps.data.number_of_correct_answers }} / {{ slotProps.data.number_of_questions }}
+                </template>
+              </Column>
+              <Column field="createdAt" :header="$t('Date & Time')">
+                <template #body="slotProps">
+                  {{ formatDateTime(slotProps.data.createdAt) }}
+                </template>
+              </Column>
+            </DataTable>
+            <div v-else class="no-test-results">
+              <i class="pi pi-info-circle" style="font-size: 2rem; color: #64748b; margin-bottom: 1rem;"></i>
+              <p>{{ $t('No test results yet') }}</p>
+            </div>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -245,12 +334,16 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useToast } from 'primevue/usetoast'
+import Calendar from 'primevue/calendar'
 
 export default {
   name: 'CertifiedUsers',
+  components: {
+    Calendar
+  },
   setup() {
     const store = useStore()
     const toast = useToast()
@@ -258,8 +351,10 @@ export default {
     
     const loading = ref(true)
     const regionsLoading = ref(true)
+    const quartersLoading = ref(true)
     const certifiedUsers = ref([])
     const regions = computed(() => store.state.regions)
+    const quarters = computed(() => store.state.quarters)
     
     const first = ref(0)
     const rowsPerPage = ref(10)
@@ -275,10 +370,15 @@ export default {
     const selectedUser = ref(null)
     
     const expandedUsers = ref({})
+    const groupedTestResults = ref([])
+    const deletingUserIds = ref(new Set())
 
     // Filter state
     const filters = ref({
-      region_id: null
+      region_id: null,
+      start_date: null,
+      end_date: null,
+      quarter_id: null
     })
     
     // Region options for dropdown, built from fetched regions
@@ -294,6 +394,44 @@ export default {
       }
       return options
     })
+    
+    // Quarter options for dropdown, built from fetched quarters
+    const quarterOptions = computed(() => {
+      const options = [{ label: i18n.t('all_quarters'), value: null }]
+      if (quarters.value && quarters.value.length) {
+        quarters.value.forEach(quarter => {
+          options.push({
+            label: quarter.name,
+            value: quarter.quarter_id
+          })
+        })
+      }
+      return options
+    })
+
+    // Helper: pick most recent certificate by given_date
+    const pickMainCert = (certs) => {
+      if (!Array.isArray(certs) || certs.length === 0) return null
+      const sorted = certs.slice().sort((a, b) => {
+        const aTime = a && a.given_date ? new Date(a.given_date).getTime() : 0
+        const bTime = b && b.given_date ? new Date(b.given_date).getTime() : 0
+        return bTime - aTime
+      })
+      return sorted[0] || null
+    }
+
+    // Localized organization/region label pickers
+    const getOrganizationName = (cert) => {
+      if (!cert || !cert.organization) return '—'
+      // Default to Uzbek; can be extended to current locale
+      return cert.organization.name_uz || cert.organization.name_ru || cert.organization.name_en || '—'
+    }
+
+    const getRegionName = (cert) => {
+      if (!cert || !cert.organization || !cert.organization.region) return '—'
+      const r = cert.organization.region
+      return r.name_uz || r.name_ru || r.name_en || '—'
+    }
 
     let debounceTimer
     const applyFiltersDebounced = () => {
@@ -312,6 +450,9 @@ export default {
     const clearFilters = () => {
       search.value = ''
       filters.value.region_id = null
+      filters.value.start_date = null
+      filters.value.end_date = null
+      filters.value.quarter_id = null
       first.value = 0
       fetchUsers()
     }
@@ -325,16 +466,32 @@ export default {
     const fetchUsers = async () => {
       loading.value = true
       try {
+        console.log('Fetching users with filters:', {
+          offset: first.value,
+          limit: rowsPerPage.value,
+          searchWord: search.value,
+          region_id: filters.value.region_id,
+          start_date: filters.value.start_date,
+          end_date: filters.value.end_date,
+          quarter_id: filters.value.quarter_id
+        })
+        
         const result = await store.dispatch('fetchCertifiedUsers', {
           offset: first.value,
           limit: rowsPerPage.value,
           searchWord: search.value,
-          region_id: filters.value.region_id
+          region_id: filters.value.region_id,
+          start_date: filters.value.start_date,
+          end_date: filters.value.end_date,
+          quarter_id: filters.value.quarter_id
         })
+        
+        console.log('Fetch result:', result)
         
         if (result && typeof result === 'object') {
           certifiedUsers.value = result.data || []
           totalRecords.value = result.totalRecords || 0
+          console.log('Users loaded:', certifiedUsers.value.length, 'Total:', totalRecords.value)
         } else {
           certifiedUsers.value = []
           totalRecords.value = 0
@@ -353,14 +510,50 @@ export default {
         loading.value = false
       }
     }
+
+    const isDeleting = (userId) => {
+      return deletingUserIds.value.has(userId)
+    }
+
+    const onDeleteUser = async (user) => {
+      const userId = user && user.user_id
+      if (!userId) return
+      const confirmed = window.confirm('Ushbu foydalanuvchini va unga tegishli sertifikatlarni o‘chirishni tasdiqlaysizmi?')
+      if (!confirmed) return
+      deletingUserIds.value.add(userId)
+      try {
+        const res = await store.dispatch('deleteUserById', userId)
+        if (res && res.success) {
+          certifiedUsers.value = certifiedUsers.value.filter(u => u.user_id !== userId)
+          totalRecords.value = Math.max(0, totalRecords.value - 1)
+          toast.add({ severity: 'success', summary: i18n.t('success'), detail: i18n.t('deleted') || 'O‘chirildi', life: 2500 })
+        } else if (res && res.notFound) {
+          certifiedUsers.value = certifiedUsers.value.filter(u => u.user_id !== userId)
+          totalRecords.value = Math.max(0, totalRecords.value - 1)
+          toast.add({ severity: 'warn', summary: i18n.t('not_found') || 'Topilmadi', detail: i18n.t('user_not_found_removed_locally') || 'Topilmadi. Ro‘yxatdan olib tashlandi.', life: 3000 })
+        } else {
+          const message = (res && res.message) || i18n.t('delete_failed') || 'O‘chirish muvaffaqiyatsiz'
+          toast.add({ severity: 'error', summary: i18n.t('error'), detail: message, life: 3500 })
+        }
+      } catch (e) {
+        toast.add({ severity: 'error', summary: i18n.t('error'), detail: e && e.message ? e.message : 'Tarmoq xatosi', life: 3500 })
+      } finally {
+        deletingUserIds.value.delete(userId)
+      }
+    }
     
     onMounted(async () => {
       loading.value = true
       regionsLoading.value = true
+      quartersLoading.value = true
       
-      // Fetch regions
-      await store.dispatch('fetchRegions')
+      // Fetch regions and quarters
+      await Promise.all([
+        store.dispatch('fetchRegions'),
+        store.dispatch('fetchQuarters')
+      ])
       regionsLoading.value = false
+      quartersLoading.value = false
       
       await fetchUsers()
     })
@@ -538,13 +731,85 @@ export default {
       expandedUsers.value[userId] = !expandedUsers.value[userId]
     }
     
+    const getAttemptLabel = (num) => {
+      if (num === 1) return 'First Attempt';
+      if (num === 2) return 'Second Attempt';
+      if (num === 3) return 'Third Attempt';
+      return `${num}th Attempt`;
+    }
+    
+    const formatDateTime = (dateString) => {
+      if (!dateString) return '-';
+      const date = new Date(dateString);
+      return date.toLocaleString('ru-RU');
+    }
+    
+    const fetchTestResults = async (user_id) => {
+      if (!user_id) {
+        groupedTestResults.value = [];
+        return;
+      }
+      try {
+        const res = await store.dispatch('adminApiRequest', {
+          url: '/api/admin/test/results',
+          method: 'get',
+          params: { user_id }
+        });
+        const testResults = res.result || (res.data && res.data.result) || [];
+        // Group by topic, keep only up to 3 attempts per topic, add attemptNumber and topic name
+        const grouped = [];
+        const topicMap = {};
+        for (const row of testResults) {
+          const topicId = row.test_topic_id;
+          if (!topicMap[topicId]) topicMap[topicId] = [];
+          if (topicMap[topicId].length < 3) topicMap[topicId].push(row);
+        }
+        Object.values(topicMap).forEach(attemptsArr => {
+          attemptsArr.forEach((row, idx) => {
+            grouped.push({
+              ...row,
+              attemptNumber: idx + 1,
+              topic: row.test_topic && row.test_topic.topic_name ? row.test_topic.topic_name : (row.test_topic && row.test_topic.name ? row.test_topic.name : row.test_topic_id)
+            });
+          });
+        });
+        groupedTestResults.value = grouped;
+      } catch (e) {
+        groupedTestResults.value = [];
+      }
+    }
+    
+    function extractUserId(obj) {
+      if (!obj) return null;
+      if (obj.user_id) return obj.user_id;
+      if (obj.user && obj.user.user_id) return obj.user.user_id;
+      if (obj.volunteer && obj.volunteer.user_id) return obj.volunteer.user_id;
+      return null;
+    }
+    
+    // Watch for dialog open and selectedUser change
+    watch([showUserDialog, selectedUser], ([dialog, user]) => {
+      const userId = extractUserId(user);
+      if (dialog && userId) {
+        fetchTestResults(userId);
+      } else {
+        groupedTestResults.value = [];
+      }
+    })
+    
     return {
       loading,
       regionsLoading,
+      quartersLoading,
       certifiedUsers,
       regions,
+      quarters,
       filters,
       regionOptions,
+      quarterOptions,
+        pickMainCert,
+        getOrganizationName,
+        getRegionName,
       applyFilters,
       clearFilters,
       showCertDialog,
@@ -567,7 +832,12 @@ export default {
       totalRecords,
       onPage,
       search,
-      applyFiltersDebounced
+      applyFiltersDebounced,
+      groupedTestResults,
+      getAttemptLabel,
+      formatDateTime
+      , isDeleting
+      , onDeleteUser
     }
   }
 }
@@ -578,6 +848,28 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+/* Delete button customizations: white icon/text, no hover change */
+.delete-btn,
+.delete-btn:enabled,
+.delete-btn:focus,
+.delete-btn:active {
+  color: #ffffff !important;
+}
+
+/* PrimeVue buttons render icon via .p-button-icon */
+.delete-btn :deep(.p-button-icon) {
+  color: #ffffff !important;
+}
+
+/* Prevent hover style changes */
+.delete-btn:hover,
+.delete-btn:enabled:hover {
+  background: inherit !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .card-title {
@@ -654,6 +946,10 @@ export default {
 .filter-container {
   flex: 1;
   min-width: 200px;
+}
+
+.filter-date {
+  width: 100%;
 }
 
 .filter-dropdown {
@@ -986,5 +1282,19 @@ export default {
   .download-all-btn {
     width: 100%;
   }
+}
+
+.no-test-results {
+  color: #64748b;
+  padding: 2rem 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.test-results-table {
+  margin-top: 1rem;
 }
 </style> 

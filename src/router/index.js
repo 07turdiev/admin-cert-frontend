@@ -7,6 +7,9 @@ import Dashboard from '../views/Dashboard.vue'
 import CertifiedUsers from '../views/CertifiedUsers.vue'
 import Applications from '../views/Applications.vue'
 import Organizations from '../views/Organizations.vue'
+import TestTopics from '../views/TestTopics.vue'
+import TestQuestions from '../views/TestQuestions.vue'
+import Quarters from '../views/Quarters.vue'
 
 const routes = [
   {
@@ -40,6 +43,24 @@ const routes = [
         path: 'organizations',
         name: 'Organizations',
         component: Organizations,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'test-topics',
+        name: 'TestTopics',
+        component: TestTopics,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'test-questions',
+        name: 'TestQuestions',
+        component: TestQuestions,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'quarters',
+        name: 'Quarters',
+        component: Quarters,
         meta: { requiresAuth: true }
       }
     ]

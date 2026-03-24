@@ -116,6 +116,10 @@ export default {
   middle_name: 'Otasining ismi',
   scan_to_verify: 'Sertifikatni tekshirish uchun QR kodni skaner qiling',
   
+  // Date filters
+  start_date: 'Boshlang\'ich sana',
+  end_date: 'Tugash sanasi',
+  
   // Common
   success: 'Muvaffaqiyatli',
   error: 'Xatolik',
@@ -178,5 +182,27 @@ export default {
   field_required: 'Maydon to\'ldirilishi shart',
   
   // Fetch errors
-  fetch_users_failed: 'Foydalanuvchilarni yuklab olishda xatolik yuz berdi'
+  fetch_users_failed: 'Foydalanuvchilarni yuklab olishda xatolik yuz berdi',
+  
+  // Quarters
+  quarters: 'Choraklar',
+  quarter: 'Chorak',
+  all_quarters: 'Barcha choraklar',
+  quarter_name: 'Chorak nomi',
+  quarter_date: 'Chorak sanasi',
+  add_quarter: 'Yangi chorak qo\'shish',
+  edit_quarter: 'Chorakni tahrirlash',
+  enter_quarter_name: 'Chorak nomini kiriting',
+  quarter_name_required: 'Chorak nomi kiritilishi shart',
+  quarter_date_required: 'Chorak sanasi kiritilishi shart',
+  select_status: 'Holatni tanlang',
+  quarter_added_successfully: 'Chorak muvaffaqiyatli qo\'shildi',
+  quarter_updated_successfully: 'Chorak muvaffaqiyatli yangilandi',
+  quarter_deleted_successfully: 'Chorak muvaffaqiyatli o\'chirildi',
+  delete_quarter_confirmation: '{name} chorakini o\'chirishni istaysizmi?',
+  fetch_quarters_failed: 'Choraklarni yuklab olishda xatolik yuz berdi',
+  save_failed: 'Saqlashda xatolik yuz berdi',
+  delete_failed: 'O\'chirishda xatolik yuz berdi',
+  update: 'Yangilash',
+  inactive: 'Nofaol'
 } 
