@@ -90,8 +90,9 @@ export default {
 
     const fetchQuarters = async () => {
       try {
-        const list = await store.dispatch('fetchQuarters')
-        quarters.value = (list || []).map(q => ({
+        const result = await store.dispatch('fetchQuarters', { offset: 0, limit: 100 })
+        const list = (result && result.data) ? result.data : []
+        quarters.value = list.map(q => ({
           label: q.name + ' — ' + formatDate(q.date),
           value: q.quarter_id
         }))
