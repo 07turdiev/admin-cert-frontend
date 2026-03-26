@@ -4,6 +4,11 @@
     <DataTable :value="topics" :loading="loading" class="p-datatable-sm">
       <Column field="test_topic_id" header="ID" style="width: 80px" />
       <Column field="topic_name" header="Topic Name" />
+      <Column header="Quarter" style="width: 200px">
+        <template #body="{ data }">
+          {{ data.quarter ? data.quarter.name + ' — ' + formatDate(data.quarter.date) : '—' }}
+        </template>
+      </Column>
       <Column header="Actions" style="width: 160px">
         <template #body="{ data }">
           <Button icon="pi pi-pencil" class="p-button-rounded p-button-info mr-2" @click="openEditDialog(data)" />
@@ -14,7 +19,14 @@
     <!-- Add Dialog -->
     <Dialog v-model:visible="showAddDialog" header="Add Topic" :modal="true" :closable="true" :style="{ width: '400px' }">
       <div class="p-fluid">
-        <InputText v-model="newTopic.topic_name" placeholder="Topic Name" />
+        <div class="field mb-3">
+          <label>Topic Name</label>
+          <InputText v-model="newTopic.topic_name" placeholder="Topic Name" class="w-full" />
+        </div>
+        <div class="field">
+          <label>Quarter (Chorak)</label>
+          <Dropdown v-model="newTopic.quarter_id" :options="quarters" optionLabel="label" optionValue="value" placeholder="Select Quarter" class="w-full" showClear />
+        </div>
       </div>
       <template #footer>
         <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showAddDialog = false" />
@@ -24,7 +36,14 @@
     <!-- Edit Dialog -->
     <Dialog v-model:visible="showEditDialog" header="Edit Topic" :modal="true" :closable="true" :style="{ width: '400px' }">
       <div class="p-fluid">
-        <InputText v-model="editTopic.topic_name" placeholder="Topic Name" />
+        <div class="field mb-3">
+          <label>Topic Name</label>
+          <InputText v-model="editTopic.topic_name" placeholder="Topic Name" class="w-full" />
+        </div>
+        <div class="field">
+          <label>Quarter (Chorak)</label>
+          <Dropdown v-model="editTopic.quarter_id" :options="quarters" optionLabel="label" optionValue="value" placeholder="Select Quarter" class="w-full" showClear />
+        </div>
       </div>
       <template #footer>
         <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showEditDialog = false" />
@@ -51,13 +70,35 @@ export default {
   setup() {
     const store = useStore()
     const topics = ref([])
+    const quarters = ref([])
     const loading = ref(false)
     const showAddDialog = ref(false)
     const showEditDialog = ref(false)
     const showDeleteDialog = ref(false)
-    const newTopic = ref({ topic_name: '' })
+    const newTopic = ref({ topic_name: '', quarter_id: null })
     const editTopic = ref({})
     const deleteTopicId = ref(null)
+
+    const formatDate = (isoString) => {
+      if (!isoString) return ''
+      const d = new Date(isoString)
+      const dd = String(d.getDate()).padStart(2, '0')
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const yyyy = d.getFullYear()
+      return `${dd}.${mm}.${yyyy}`
+    }
+
+    const fetchQuarters = async () => {
+      try {
+        const list = await store.dispatch('fetchQuarters')
+        quarters.value = (list || []).map(q => ({
+          label: q.name + ' — ' + formatDate(q.date),
+          value: q.quarter_id
+        }))
+      } catch (e) {
+        quarters.value = []
+      }
+    }
 
     const fetchTopics = async () => {
       loading.value = true
@@ -66,7 +107,7 @@ export default {
     }
 
     const openAddDialog = () => {
-      newTopic.value = { topic_name: '' }
+      newTopic.value = { topic_name: '', quarter_id: null }
       showAddDialog.value = true
     }
     const addTopic = async () => {
@@ -75,7 +116,7 @@ export default {
       fetchTopics()
     }
     const openEditDialog = (topic) => {
-      editTopic.value = { ...topic }
+      editTopic.value = { ...topic, quarter_id: topic.quarter_id || null }
       showEditDialog.value = true
     }
     const updateTopic = async () => {
@@ -93,10 +134,14 @@ export default {
       fetchTopics()
     }
 
-    onMounted(fetchTopics)
+    onMounted(() => {
+      fetchTopics()
+      fetchQuarters()
+    })
 
     return {
       topics,
+      quarters,
       loading,
       showAddDialog,
       showEditDialog,
@@ -108,7 +153,8 @@ export default {
       openEditDialog,
       updateTopic,
       confirmDelete,
-      deleteTopic
+      deleteTopic,
+      formatDate
     }
   }
 }
