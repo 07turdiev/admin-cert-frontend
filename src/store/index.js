@@ -231,11 +231,13 @@ const store = createStore({
     },
     
     // Change application status
-    async changeApplicationStatus({ dispatch, getters }, { applicationId, status }) {
+    async changeApplicationStatus({ dispatch, getters }, { applicationId, status, cancel_comment }) {
       try {
+        const body = { status }
+        if (cancel_comment) body.cancel_comment = cancel_comment
         const response = await axios.put(
-          `${this.state.baseUrl}/api/admin/applications/${applicationId}`, 
-          { status },
+          `${this.state.baseUrl}/api/admin/applications/${applicationId}`,
+          body,
           { params: { token: getters.getToken } }
         )
         if (response.data.success) {

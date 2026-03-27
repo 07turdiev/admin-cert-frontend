@@ -56,5 +56,10 @@ export default {
   all_years: 'Все годы',
   year: 'Год',
   all_statuses: 'Все статусы',
-  all_regions: 'Все регионы'
+  all_regions: 'Все регионы',
+
+  // Cancel comment
+  reject_reason: 'Причина отказа',
+  cancel_comment: 'Комментарий',
+  enter_cancel_reason: 'Укажите причину отказа...'
 } 

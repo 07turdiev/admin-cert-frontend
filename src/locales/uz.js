@@ -206,5 +206,10 @@ export default {
   save_failed: 'Saqlashda xatolik yuz berdi',
   delete_failed: 'O\'chirishda xatolik yuz berdi',
   update: 'Yangilash',
-  inactive: 'Nofaol'
+  inactive: 'Nofaol',
+
+  // Cancel comment
+  reject_reason: 'Rad etish sababi',
+  cancel_comment: 'Izoh',
+  enter_cancel_reason: 'Rad etish sababini kiriting...'
 } 

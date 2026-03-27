@@ -164,7 +164,7 @@
                        @click="acceptApplication(slotProps.data)" :label="$t('accept')">
                 </Button>
                 <Button v-if="slotProps.data.status == 'new'" icon="pi pi-times" class="p-button-danger p-button-sm"
-                       @click="cancelApplication(slotProps.data)" :label="$t('reject')">
+                       @click.stop="cancelApplication(slotProps.data)" :label="$t('reject')">
                 </Button>
                 <Button v-if="slotProps.data.status == 'accepted'" icon="pi pi-id-card" class="p-button-info p-button-sm"
                        @click="createCertificate(slotProps.data)" :label="$t('certify')">
@@ -204,6 +204,18 @@
         <Button :label="$t('close')" icon="pi pi-times" @click="showCertDialog = false" class="p-button-text" />
         <Button :label="$t('download_certificate')" icon="pi pi-download" autofocus class="p-button-success" 
                @click="downloadCertificate" :loading="downloadLoading" :disabled="downloadLoading" />
+      </template>
+    </Dialog>
+
+    <!-- Cancel Application Dialog -->
+    <Dialog v-model:visible="showCancelDialog" :header="$t('reject_reason')" :style="{width: '500px'}" :modal="true">
+      <div class="cancel-form">
+        <label>{{ $t('cancel_comment') }}</label>
+        <Textarea v-model="cancelComment" rows="4" class="w-full" :placeholder="$t('enter_cancel_reason')" />
+      </div>
+      <template #footer>
+        <Button :label="$t('cancel')" icon="pi pi-times" @click="showCancelDialog = false" class="p-button-text" />
+        <Button :label="$t('reject')" icon="pi pi-ban" @click="confirmCancel" class="p-button-danger" :disabled="!cancelComment.trim()" />
       </template>
     </Dialog>
 
@@ -301,6 +313,12 @@
                 <span class="detail-value">{{ getQuarterLabel(selectedApplication) }}</span>
               </div>
             </div>
+            <div v-if="selectedApplication.status === 'cancelled' && selectedApplication.cancel_comment" class="cancel-comment-section">
+              <div class="detail-item" style="grid-column: 1 / -1;">
+                <span class="detail-label">{{ $t('cancel_comment') }}</span>
+                <span class="detail-value" style="color: #e74c3c;">{{ selectedApplication.cancel_comment }}</span>
+              </div>
+            </div>
           </div>
           <!-- Test Results Section (custom, no el-table) -->
           <div class="detail-section">
@@ -335,7 +353,7 @@
         <Button :label="$t('close')" icon="pi pi-times" @click="showDetailDialog = false" class="p-button-text" />
         <div v-if="selectedApplication && selectedApplication.status === 'new'" class="footer-actions">
           <Button :label="$t('accept')" icon="pi pi-check" @click="acceptApplication(selectedApplication); showDetailDialog = false" class="p-button-success" />
-          <Button :label="$t('reject')" icon="pi pi-times" @click="cancelApplication(selectedApplication); showDetailDialog = false" class="p-button-danger" />
+          <Button :label="$t('reject')" icon="pi pi-times" @click="showDetailDialog = false; cancelApplication(selectedApplication)" class="p-button-danger" />
         </div>
         <Button v-if="selectedApplication && selectedApplication.status === 'accepted'" :label="$t('certify')" icon="pi pi-id-card" 
                @click="createCertificate(selectedApplication); showDetailDialog = false" class="p-button-info" />
@@ -558,22 +576,36 @@ export default {
       }
     }
     
-    const cancelApplication = async (application) => {
+    const showCancelDialog = ref(false)
+    const cancelComment = ref('')
+    const cancelTargetApplication = ref(null)
+
+    const cancelApplication = (application) => {
+      cancelTargetApplication.value = application
+      cancelComment.value = ''
+      showCancelDialog.value = true
+    }
+
+    const confirmCancel = async () => {
+      const application = cancelTargetApplication.value
+      if (!application) return
+      showCancelDialog.value = false
       loading.value = true
       try {
         const success = await store.dispatch('changeApplicationStatus', {
           applicationId: application.application_id,
-          status: 'cancelled'
+          status: 'cancelled',
+          cancel_comment: cancelComment.value.trim()
         })
-        
+
         if (success) {
-          // Immediately update the local application status
           const appIndex = applications.value.findIndex(app => app.application_id === application.application_id)
           if (appIndex !== -1) {
             applications.value[appIndex].status = 'cancelled'
+            applications.value[appIndex].cancel_comment = cancelComment.value.trim()
             applications.value[appIndex].updatedAt = new Date().toISOString()
           }
-          
+
           toast.add({
             severity: 'info',
             summary: i18n.t('success'),
@@ -794,6 +826,9 @@ export default {
       formatDate,
       acceptApplication,
       cancelApplication,
+      confirmCancel,
+      showCancelDialog,
+      cancelComment,
       createCertificate,
       downloadCertificate,
       downloadLoading,
