@@ -25,6 +25,7 @@ import Card from 'primevue/card'
 import Badge from 'primevue/badge'
 import Avatar from 'primevue/avatar'
 import ProgressSpinner from 'primevue/progressspinner'
+import Textarea from 'primevue/textarea'
 
 const app = createApp(App)
 
@@ -46,5 +47,6 @@ app.component('Card', Card)
 app.component('Badge', Badge)
 app.component('Avatar', Avatar)
 app.component('ProgressSpinner', ProgressSpinner)
+app.component('Textarea', Textarea)
 
 app.mount('#app') 
