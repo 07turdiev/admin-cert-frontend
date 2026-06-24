@@ -24,7 +24,7 @@
         <InputText v-model="newQuestion.answer_2" placeholder="Answer 2" class="mb-2" />
         <InputText v-model="newQuestion.answer_3" placeholder="Answer 3" class="mb-2" />
         <InputText v-model="newQuestion.answer_4" placeholder="Answer 4" class="mb-2" />
-        <Dropdown v-model="newQuestion.correct_answer" :options="correctAnswerOptionsAdd" placeholder="Correct Answer" class="mb-2" />
+        <Dropdown v-model="newQuestion.correct_answer" :options="correctAnswerOptionsAdd" optionLabel="label" optionValue="value" placeholder="Correct Answer" class="mb-2" />
       </div>
       <template #footer>
         <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showAddDialog = false" />
@@ -39,7 +39,7 @@
         <InputText v-model="editQuestion.answer_2" placeholder="Answer 2" class="mb-2" />
         <InputText v-model="editQuestion.answer_3" placeholder="Answer 3" class="mb-2" />
         <InputText v-model="editQuestion.answer_4" placeholder="Answer 4" class="mb-2" />
-        <Dropdown v-model="editQuestion.correct_answer" :options="correctAnswerOptionsEdit" placeholder="Correct Answer" class="mb-2" />
+        <Dropdown v-model="editQuestion.correct_answer" :options="correctAnswerOptionsEdit" optionLabel="label" optionValue="value" placeholder="Correct Answer" class="mb-2" />
       </div>
       <template #footer>
         <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showEditDialog = false" />
@@ -128,9 +128,7 @@ export default {
       return q.question && q.answer_1 && q.answer_2 && q.answer_3 && q.answer_4 && q.correct_answer && q.test_topic_id
     }
     const addQuestion = async () => {
-    
-      // Ensure correct_answer is always 'answer_1', 'answer_2', etc.
-      newQuestion.value.correct_answer = newQuestion.value.correct_answer.value
+      // correct_answer is already 'answer_1', 'answer_2', etc. (Dropdown optionValue)
       await store.dispatch('addTestQuestion', newQuestion.value)
       showAddDialog.value = false
       await refreshQuestionsForTopic(addToTopicId.value)
@@ -141,9 +139,7 @@ export default {
       showEditDialog.value = true
     }
     const updateQuestion = async () => {
-      // Ensure correct_answer is always 'answer_1', 'answer_2', etc.
-      newQuestion.value.correct_answer = newQuestion.value.correct_answer.value
-
+      // correct_answer is already 'answer_1', 'answer_2', etc. (Dropdown optionValue)
       await store.dispatch('editTestQuestion', { id: editQuestion.value.test_question_id, questionData: editQuestion.value })
       showEditDialog.value = false
       await refreshQuestionsForTopic(editTopicId.value)
