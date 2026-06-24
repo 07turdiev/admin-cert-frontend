@@ -1,158 +1,158 @@
 <template>
   <div class="test-questions-container">
+    <Toast />
+
+    <div class="page-header">
+      <h2 class="page-title">Test savollari</h2>
+      <p class="page-subtitle">Har bir mavzu bo‘yicha savollarni qo‘shing, tahrirlang yoki o‘chiring.</p>
+    </div>
+
     <Accordion :multiple="true">
-      <AccordionTab v-for="topic in topics" :key="topic.test_topic_id" :header="topic.topic_name">
-        <Button label="Add Question" icon="pi pi-plus" class="p-button-success mb-3" @click="openAddDialog(topic.test_topic_id)" />
-        <DataTable :value="questionsByTopic[topic.test_topic_id]" :loading="loadingTopics[topic.test_topic_id]" class="p-datatable-sm">
-          <Column field="test_question_id" header="ID" style="width: 80px" />
-          <Column field="question" header="Question" />
-          <Column field="correct_answer" header="Correct Answer" />
-          <Column header="Actions" style="width: 160px">
+      <AccordionTab v-for="topic in topics" :key="topic.test_topic_id">
+        <template #header>
+          <div class="topic-header">
+            <span class="topic-header-name">{{ topic.topic_name }}</span>
+            <span class="topic-header-count">{{ (questionsByTopic[topic.test_topic_id] || []).length }} ta savol</span>
+          </div>
+        </template>
+
+        <div class="topic-toolbar">
+          <Button label="Savol qo‘shish" icon="pi pi-plus" class="p-button-success p-button-sm"
+            @click="openAdd(topic.test_topic_id)" />
+        </div>
+
+        <DataTable :value="questionsByTopic[topic.test_topic_id]" :loading="loadingTopics[topic.test_topic_id]"
+          class="p-datatable-sm" responsiveLayout="scroll" :rows="10" paginator
+          :rowsPerPageOptions="[10, 25, 50]">
+          <template #empty>
+            <div class="table-empty">Bu mavzuda hali savol yo‘q.</div>
+          </template>
+
+          <Column field="test_question_id" header="ID" style="width: 70px" />
+          <Column field="question" header="Savol" />
+          <Column header="To‘g‘ri javob" style="min-width: 200px">
             <template #body="{ data }">
-              <Button icon="pi pi-pencil" class="p-button-rounded p-button-info mr-2" @click="openEditDialog(data, topic.test_topic_id)" />
-              <Button icon="pi pi-trash" class="p-button-rounded p-button-danger" @click="confirmDelete(data, topic.test_topic_id)" />
+              <span class="correct-pill">
+                <i class="pi pi-check"></i>
+                {{ correctAnswerText(data) }}
+              </span>
+            </template>
+          </Column>
+          <Column header="Amallar" style="width: 130px">
+            <template #body="{ data }">
+              <Button icon="pi pi-pencil" class="p-button-rounded p-button-text p-button-info mr-1"
+                @click="openEdit(data, topic.test_topic_id)" v-tooltip.top="'Tahrirlash'" />
+              <Button icon="pi pi-trash" class="p-button-rounded p-button-text p-button-danger"
+                @click="confirmDelete(data, topic.test_topic_id)" v-tooltip.top="'O‘chirish'" />
             </template>
           </Column>
         </DataTable>
       </AccordionTab>
     </Accordion>
-    <!-- Add Dialog -->
-    <Dialog v-model:visible="showAddDialog" header="Add Question" :modal="true" :closable="true" :style="{ width: '500px' }">
-      <div class="p-fluid">
-        <InputText v-model="newQuestion.question" placeholder="Question" class="mb-2" />
-        <InputText v-model="newQuestion.answer_1" placeholder="Answer 1" class="mb-2" />
-        <InputText v-model="newQuestion.answer_2" placeholder="Answer 2" class="mb-2" />
-        <InputText v-model="newQuestion.answer_3" placeholder="Answer 3" class="mb-2" />
-        <InputText v-model="newQuestion.answer_4" placeholder="Answer 4" class="mb-2" />
-        <Dropdown v-model="newQuestion.correct_answer" :options="correctAnswerOptionsAdd" optionLabel="label" optionValue="value" placeholder="Correct Answer" class="mb-2" />
+
+    <p v-if="!topics.length && !loading" class="no-topics">
+      Avval <b>Test mavzulari</b> bo‘limidan mavzu qo‘shing.
+    </p>
+
+    <!-- Add / Edit Dialog (yagona) -->
+    <Dialog v-model:visible="showDialog" :header="dialogMode === 'add' ? 'Savol qo‘shish' : 'Savolni tahrirlash'"
+      :modal="true" :closable="true" :style="{ width: '560px' }" class="question-dialog">
+      <div class="form">
+        <div class="field">
+          <label class="field-label">Savol matni <span class="req">*</span></label>
+          <Textarea v-model="form.question" rows="2" autoResize placeholder="Savolni kiriting" class="w-full"
+            :class="{ 'p-invalid': submitted && !form.question }" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Variantlar — to‘g‘risini belgilang <span class="req">*</span></label>
+          <div v-for="opt in answerKeys" :key="opt.key" class="answer-row"
+            :class="{ 'answer-row--correct': form.correct_answer === opt.key }">
+            <label class="answer-radio" v-tooltip.top="'To‘g‘ri javob deb belgilash'">
+              <input type="radio" name="correctAnswer" :value="opt.key" v-model="form.correct_answer" />
+            </label>
+            <span class="answer-letter">{{ opt.letter }}</span>
+            <InputText v-model="form[opt.key]" :placeholder="'Variant ' + opt.letter" class="w-full"
+              :class="{ 'p-invalid': submitted && !form[opt.key] }" />
+          </div>
+          <small v-if="submitted && !form.correct_answer" class="p-error">To‘g‘ri javobni belgilang.</small>
+        </div>
       </div>
+
       <template #footer>
-        <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showAddDialog = false" />
-        <Button label="Add" icon="pi pi-check" class="p-button-success" @click="addQuestion" :disabled="!canAddOrEdit(newQuestion)" />
+        <Button label="Bekor qilish" icon="pi pi-times" class="p-button-text" @click="showDialog = false" />
+        <Button :label="dialogMode === 'add' ? 'Qo‘shish' : 'Saqlash'" icon="pi pi-check" class="p-button-success"
+          :loading="saving" @click="save" />
       </template>
     </Dialog>
-    <!-- Edit Dialog -->
-    <Dialog v-model:visible="showEditDialog" header="Edit Question" :modal="true" :closable="true" :style="{ width: '500px' }">
-      <div class="p-fluid">
-        <InputText v-model="editQuestion.question" placeholder="Question" class="mb-2" />
-        <InputText v-model="editQuestion.answer_1" placeholder="Answer 1" class="mb-2" />
-        <InputText v-model="editQuestion.answer_2" placeholder="Answer 2" class="mb-2" />
-        <InputText v-model="editQuestion.answer_3" placeholder="Answer 3" class="mb-2" />
-        <InputText v-model="editQuestion.answer_4" placeholder="Answer 4" class="mb-2" />
-        <Dropdown v-model="editQuestion.correct_answer" :options="correctAnswerOptionsEdit" optionLabel="label" optionValue="value" placeholder="Correct Answer" class="mb-2" />
-      </div>
+
+    <!-- Delete Confirm -->
+    <Dialog v-model:visible="showDeleteDialog" header="O‘chirishni tasdiqlang" :modal="true" :closable="false"
+      :style="{ width: '380px' }">
+      <span>Ushbu savolni o‘chirishni istaysizmi? Bu amalni qaytarib bo‘lmaydi.</span>
       <template #footer>
-        <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showEditDialog = false" />
-        <Button label="Save" icon="pi pi-check" class="p-button-success" @click="updateQuestion" :disabled="!canAddOrEdit(editQuestion)" />
-      </template>
-    </Dialog>
-    <!-- Delete Confirm Dialog -->
-    <Dialog v-model:visible="showDeleteDialog" header="Confirm Delete" :modal="true" :closable="false" :style="{ width: '350px' }">
-      <span>Are you sure you want to delete this question?</span>
-      <template #footer>
-        <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showDeleteDialog = false" />
-        <Button label="Delete" icon="pi pi-trash" class="p-button-danger" @click="deleteQuestion" />
+        <Button label="Bekor qilish" icon="pi pi-times" class="p-button-text" @click="showDeleteDialog = false" />
+        <Button label="O‘chirish" icon="pi pi-trash" class="p-button-danger" :loading="deleting" @click="deleteQuestion" />
       </template>
     </Dialog>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useStore } from 'vuex'
+import { useToast } from 'primevue/usetoast'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
+
+const ANSWER_KEYS = [
+  { key: 'answer_1', letter: 'A' },
+  { key: 'answer_2', letter: 'B' },
+  { key: 'answer_3', letter: 'C' },
+  { key: 'answer_4', letter: 'D' },
+]
+
+const emptyForm = (topicId = null) => ({
+  test_question_id: null,
+  question: '',
+  answer_1: '',
+  answer_2: '',
+  answer_3: '',
+  answer_4: '',
+  correct_answer: '',
+  test_topic_id: topicId,
+})
 
 export default {
   name: 'TestQuestions',
   components: { Accordion, AccordionTab },
   setup() {
     const store = useStore()
+    const toast = useToast()
+
     const topics = ref([])
     const questionsByTopic = reactive({})
     const loadingTopics = reactive({})
-    const showAddDialog = ref(false)
-    const showEditDialog = ref(false)
+    const loading = ref(false)
+
+    const showDialog = ref(false)
+    const dialogMode = ref('add') // 'add' | 'edit'
+    const form = ref(emptyForm())
+    const submitted = ref(false)
+    const saving = ref(false)
+
     const showDeleteDialog = ref(false)
-    const newQuestion = ref({
-      question: '',
-      answer_1: '',
-      answer_2: '',
-      answer_3: '',
-      answer_4: '',
-      correct_answer: '',
-      test_topic_id: null
-    })
-    const editQuestion = ref({})
-    const deleteQuestionId = ref(null)
-    const deleteTopicId = ref(null)
-    const addToTopicId = ref(null)
-    const editTopicId = ref(null)
+    const deleting = ref(false)
+    const deleteTarget = reactive({ id: null, topicId: null })
 
-    const correctAnswerOptionsAdd = computed(() => [
-      { label: newQuestion.value.answer_1, value: 'answer_1' },
-      { label: newQuestion.value.answer_2, value: 'answer_2' },
-      { label: newQuestion.value.answer_3, value: 'answer_3' },
-      { label: newQuestion.value.answer_4, value: 'answer_4' }
-    ].filter(opt => opt.label))
-    const correctAnswerOptionsEdit = computed(() => [
-      { label: editQuestion.value.answer_1, value: 'answer_1' },
-      { label: editQuestion.value.answer_2, value: 'answer_2' },
-      { label: editQuestion.value.answer_3, value: 'answer_3' },
-      { label: editQuestion.value.answer_4, value: 'answer_4' }
-    ].filter(opt => opt.label))
-
+    // --- Loading --------------------------------------------------------
     const fetchTopicsAndQuestions = async () => {
+      loading.value = true
       topics.value = await store.dispatch('fetchTestTopics')
       for (const topic of topics.value) {
-        loadingTopics[topic.test_topic_id] = true
-        questionsByTopic[topic.test_topic_id] = await store.dispatch('fetchTestQuestionsByTopic', topic.test_topic_id)
-        loadingTopics[topic.test_topic_id] = false
+        await refreshQuestionsForTopic(topic.test_topic_id)
       }
-    }
-
-    const openAddDialog = (topicId) => {
-      newQuestion.value = {
-        question: '',
-        answer_1: '',
-        answer_2: '',
-        answer_3: '',
-        answer_4: '',
-        correct_answer: '',
-        test_topic_id: topicId
-      }
-      addToTopicId.value = topicId
-      showAddDialog.value = true
-    }
-    const canAddOrEdit = (q) => {
-      return q.question && q.answer_1 && q.answer_2 && q.answer_3 && q.answer_4 && q.correct_answer && q.test_topic_id
-    }
-    const addQuestion = async () => {
-      // correct_answer is already 'answer_1', 'answer_2', etc. (Dropdown optionValue)
-      await store.dispatch('addTestQuestion', newQuestion.value)
-      showAddDialog.value = false
-      await refreshQuestionsForTopic(addToTopicId.value)
-    }
-    const openEditDialog = (question, topicId) => {
-      editQuestion.value = { ...question }
-      editTopicId.value = topicId
-      showEditDialog.value = true
-    }
-    const updateQuestion = async () => {
-      // correct_answer is already 'answer_1', 'answer_2', etc. (Dropdown optionValue)
-      await store.dispatch('editTestQuestion', { id: editQuestion.value.test_question_id, questionData: editQuestion.value })
-      showEditDialog.value = false
-      await refreshQuestionsForTopic(editTopicId.value)
-    }
-    const confirmDelete = (question, topicId) => {
-      deleteQuestionId.value = question.test_question_id
-      deleteTopicId.value = topicId
-      showDeleteDialog.value = true
-    }
-    const deleteQuestion = async () => {
-      await store.dispatch('deleteTestQuestion', deleteQuestionId.value)
-      showDeleteDialog.value = false
-      await refreshQuestionsForTopic(deleteTopicId.value)
+      loading.value = false
     }
     const refreshQuestionsForTopic = async (topicId) => {
       loadingTopics[topicId] = true
@@ -160,28 +160,89 @@ export default {
       loadingTopics[topicId] = false
     }
 
+    // --- Helpers --------------------------------------------------------
+    const correctAnswerText = (q) => {
+      const txt = q && q.correct_answer ? q[q.correct_answer] : ''
+      return txt || '—'
+    }
+    const isValid = () => {
+      const f = form.value
+      return (
+        f.question.trim() &&
+        f.answer_1.trim() && f.answer_2.trim() && f.answer_3.trim() && f.answer_4.trim() &&
+        f.correct_answer && f.test_topic_id
+      )
+    }
+
+    // --- Add / Edit -----------------------------------------------------
+    const openAdd = (topicId) => {
+      form.value = emptyForm(topicId)
+      dialogMode.value = 'add'
+      submitted.value = false
+      showDialog.value = true
+    }
+    const openEdit = (question, topicId) => {
+      form.value = { ...emptyForm(topicId), ...question, test_topic_id: topicId }
+      dialogMode.value = 'edit'
+      submitted.value = false
+      showDialog.value = true
+    }
+    const save = async () => {
+      submitted.value = true
+      if (!isValid()) {
+        toast.add({ severity: 'warn', summary: 'To‘ldirilmagan', detail: 'Barcha maydonlarni to‘ldiring va to‘g‘ri javobni belgilang.', life: 3500 })
+        return
+      }
+      saving.value = true
+      const payload = { ...form.value }
+      let res
+      if (dialogMode.value === 'add') {
+        res = await store.dispatch('addTestQuestion', payload)
+      } else {
+        res = await store.dispatch('editTestQuestion', { id: payload.test_question_id, questionData: payload })
+      }
+      saving.value = false
+
+      if (res) {
+        toast.add({ severity: 'success', summary: 'Saqlandi', detail: dialogMode.value === 'add' ? 'Savol qo‘shildi.' : 'Savol yangilandi.', life: 2500 })
+        showDialog.value = false
+        await refreshQuestionsForTopic(form.value.test_topic_id)
+      } else {
+        toast.add({ severity: 'error', summary: 'Xatolik', detail: 'Saqlashda xatolik yuz berdi. Qaytadan urinib ko‘ring.', life: 4000 })
+      }
+    }
+
+    // --- Delete ---------------------------------------------------------
+    const confirmDelete = (question, topicId) => {
+      deleteTarget.id = question.test_question_id
+      deleteTarget.topicId = topicId
+      showDeleteDialog.value = true
+    }
+    const deleteQuestion = async () => {
+      deleting.value = true
+      const res = await store.dispatch('deleteTestQuestion', deleteTarget.id)
+      deleting.value = false
+      showDeleteDialog.value = false
+      if (res) {
+        toast.add({ severity: 'success', summary: 'O‘chirildi', detail: 'Savol o‘chirildi.', life: 2500 })
+        await refreshQuestionsForTopic(deleteTarget.topicId)
+      } else {
+        toast.add({ severity: 'error', summary: 'Xatolik', detail: 'O‘chirishda xatolik yuz berdi.', life: 4000 })
+      }
+    }
+
     onMounted(fetchTopicsAndQuestions)
 
     return {
-      topics,
-      questionsByTopic,
-      loadingTopics,
-      showAddDialog,
-      showEditDialog,
-      showDeleteDialog,
-      newQuestion,
-      editQuestion,
-      correctAnswerOptionsAdd,
-      correctAnswerOptionsEdit,
-      openAddDialog,
-      addQuestion,
-      openEditDialog,
-      updateQuestion,
-      confirmDelete,
-      deleteQuestion,
-      canAddOrEdit
+      topics, questionsByTopic, loadingTopics, loading,
+      showDialog, dialogMode, form, submitted, saving,
+      showDeleteDialog, deleting,
+      answerKeys: ANSWER_KEYS,
+      correctAnswerText,
+      openAdd, openEdit, save,
+      confirmDelete, deleteQuestion,
     }
-  }
+  },
 }
 </script>
 
@@ -189,7 +250,124 @@ export default {
 .test-questions-container {
   padding: 2rem;
 }
-.mb-3 {
+
+.page-header {
   margin-bottom: 1.5rem;
 }
-</style> 
+.page-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.page-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* Accordion header */
+.topic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+.topic-header-name {
+  font-weight: 600;
+}
+.topic-header-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  background: #eef2f7;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.topic-toolbar {
+  margin-bottom: 12px;
+}
+
+.table-empty,
+.no-topics {
+  text-align: center;
+  color: #64748b;
+  padding: 16px;
+}
+
+/* Correct answer pill in table */
+.correct-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e6f4ea;
+  color: #1e7e34;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.correct-pill .pi {
+  font-size: 0.7rem;
+}
+
+/* Dialog form */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #334155;
+}
+.req {
+  color: #e53935;
+}
+
+.answer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1.5px solid #e5e9f0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.answer-row--correct {
+  border-color: #34c759;
+  background: #f1fbf4;
+}
+.answer-radio {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.answer-radio input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #34c759;
+}
+.answer-letter {
+  width: 22px;
+  text-align: center;
+  font-weight: 700;
+  color: #475569;
+}
+
+.w-full {
+  width: 100%;
+}
+.mr-1 {
+  margin-right: 4px;
+}
+</style>

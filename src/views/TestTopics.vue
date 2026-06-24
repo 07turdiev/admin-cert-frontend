@@ -1,61 +1,71 @@
 <template>
   <div class="test-topics-container">
-    <Button label="Add Topic" icon="pi pi-plus" class="p-button-success mb-3" @click="openAddDialog" />
-    <DataTable :value="topics" :loading="loading" class="p-datatable-sm">
-      <Column field="test_topic_id" header="ID" style="width: 80px" />
-      <Column field="topic_name" header="Topic Name" />
-      <Column header="Quarter" style="width: 200px">
+    <Toast />
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Test mavzulari</h2>
+        <p class="page-subtitle">Choraklarga bog‘langan test mavzularini boshqaring.</p>
+      </div>
+      <Button label="Mavzu qo‘shish" icon="pi pi-plus" class="p-button-success" @click="openAdd" />
+    </div>
+
+    <DataTable :value="topics" :loading="loading" class="p-datatable-sm" responsiveLayout="scroll"
+      paginator :rows="10" :rowsPerPageOptions="[10, 25, 50]">
+      <template #empty>
+        <div class="table-empty">Hali mavzu qo‘shilmagan.</div>
+      </template>
+
+      <Column field="test_topic_id" header="ID" style="width: 70px" />
+      <Column field="topic_name" header="Mavzu nomi" />
+      <Column header="Chorak" style="min-width: 200px">
         <template #body="{ data }">
-          {{ data.quarter ? data.quarter.name + ' — ' + formatDate(data.quarter.date) : '—' }}
+          <span v-if="data.quarter" class="quarter-pill">
+            {{ data.quarter.name }} — {{ formatDate(data.quarter.date) }}
+          </span>
+          <span v-else class="muted">—</span>
         </template>
       </Column>
-      <Column header="Actions" style="width: 160px">
+      <Column header="Amallar" style="width: 130px">
         <template #body="{ data }">
-          <Button icon="pi pi-pencil" class="p-button-rounded p-button-info mr-2" @click="openEditDialog(data)" />
-          <Button icon="pi pi-trash" class="p-button-rounded p-button-danger" @click="confirmDelete(data)" />
+          <Button icon="pi pi-pencil" class="p-button-rounded p-button-text p-button-info mr-1"
+            @click="openEdit(data)" v-tooltip.top="'Tahrirlash'" />
+          <Button icon="pi pi-trash" class="p-button-rounded p-button-text p-button-danger"
+            @click="confirmDelete(data)" v-tooltip.top="'O‘chirish'" />
         </template>
       </Column>
     </DataTable>
-    <!-- Add Dialog -->
-    <Dialog v-model:visible="showAddDialog" header="Add Topic" :modal="true" :closable="true" :style="{ width: '400px' }">
-      <div class="p-fluid">
-        <div class="field mb-3">
-          <label>Topic Name</label>
-          <InputText v-model="newTopic.topic_name" placeholder="Topic Name" class="w-full" />
+
+    <!-- Add / Edit Dialog -->
+    <Dialog v-model:visible="showDialog" :header="dialogMode === 'add' ? 'Mavzu qo‘shish' : 'Mavzuni tahrirlash'"
+      :modal="true" :closable="true" :style="{ width: '420px' }">
+      <div class="form">
+        <div class="field">
+          <label class="field-label">Mavzu nomi <span class="req">*</span></label>
+          <InputText v-model="form.topic_name" placeholder="Mavzu nomi" class="w-full"
+            :class="{ 'p-invalid': submitted && !form.topic_name }" />
+          <small v-if="submitted && !form.topic_name" class="p-error">Mavzu nomini kiriting.</small>
         </div>
         <div class="field">
-          <label>Quarter (Chorak)</label>
-          <Dropdown v-model="newTopic.quarter_id" :options="quarters" optionLabel="label" optionValue="value" placeholder="Select Quarter" class="w-full" showClear />
+          <label class="field-label">Chorak</label>
+          <Dropdown v-model="form.quarter_id" :options="quarters" optionLabel="label" optionValue="value"
+            placeholder="Chorakni tanlang" class="w-full" showClear filter />
         </div>
       </div>
       <template #footer>
-        <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showAddDialog = false" />
-        <Button label="Add" icon="pi pi-check" class="p-button-success" @click="addTopic" :disabled="!newTopic.topic_name" />
+        <Button label="Bekor qilish" icon="pi pi-times" class="p-button-text" @click="showDialog = false" />
+        <Button :label="dialogMode === 'add' ? 'Qo‘shish' : 'Saqlash'" icon="pi pi-check" class="p-button-success"
+          :loading="saving" @click="save" />
       </template>
     </Dialog>
-    <!-- Edit Dialog -->
-    <Dialog v-model:visible="showEditDialog" header="Edit Topic" :modal="true" :closable="true" :style="{ width: '400px' }">
-      <div class="p-fluid">
-        <div class="field mb-3">
-          <label>Topic Name</label>
-          <InputText v-model="editTopic.topic_name" placeholder="Topic Name" class="w-full" />
-        </div>
-        <div class="field">
-          <label>Quarter (Chorak)</label>
-          <Dropdown v-model="editTopic.quarter_id" :options="quarters" optionLabel="label" optionValue="value" placeholder="Select Quarter" class="w-full" showClear />
-        </div>
-      </div>
+
+    <!-- Delete Confirm -->
+    <Dialog v-model:visible="showDeleteDialog" header="O‘chirishni tasdiqlang" :modal="true" :closable="false"
+      :style="{ width: '400px' }">
+      <span>Ushbu mavzuni o‘chirishni istaysizmi? Unga bog‘langan savollar ham yo‘qolishi mumkin.</span>
       <template #footer>
-        <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showEditDialog = false" />
-        <Button label="Save" icon="pi pi-check" class="p-button-success" @click="updateTopic" :disabled="!editTopic.topic_name" />
-      </template>
-    </Dialog>
-    <!-- Delete Confirm Dialog -->
-    <Dialog v-model:visible="showDeleteDialog" header="Confirm Delete" :modal="true" :closable="false" :style="{ width: '350px' }">
-      <span>Are you sure you want to delete this topic?</span>
-      <template #footer>
-        <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showDeleteDialog = false" />
-        <Button label="Delete" icon="pi pi-trash" class="p-button-danger" @click="deleteTopic" />
+        <Button label="Bekor qilish" icon="pi pi-times" class="p-button-text" @click="showDeleteDialog = false" />
+        <Button label="O‘chirish" icon="pi pi-trash" class="p-button-danger" :loading="deleting" @click="deleteTopic" />
       </template>
     </Dialog>
   </div>
@@ -64,75 +74,106 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { useStore } from 'vuex'
+import { useToast } from 'primevue/usetoast'
+
+const emptyForm = () => ({ test_topic_id: null, topic_name: '', quarter_id: null })
 
 export default {
   name: 'TestTopics',
   setup() {
     const store = useStore()
+    const toast = useToast()
+
     const topics = ref([])
     const quarters = ref([])
     const loading = ref(false)
-    const showAddDialog = ref(false)
-    const showEditDialog = ref(false)
+
+    const showDialog = ref(false)
+    const dialogMode = ref('add')
+    const form = ref(emptyForm())
+    const submitted = ref(false)
+    const saving = ref(false)
+
     const showDeleteDialog = ref(false)
-    const newTopic = ref({ topic_name: '', quarter_id: null })
-    const editTopic = ref({})
-    const deleteTopicId = ref(null)
+    const deleting = ref(false)
+    const deleteId = ref(null)
 
-    const formatDate = (isoString) => {
-      if (!isoString) return ''
-      const d = new Date(isoString)
-      const dd = String(d.getDate()).padStart(2, '0')
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const yyyy = d.getFullYear()
-      return `${dd}.${mm}.${yyyy}`
+    const formatDate = (iso) => {
+      if (!iso) return ''
+      const d = new Date(iso)
+      const pad = n => String(n).padStart(2, '0')
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`
     }
 
-    const fetchQuarters = async () => {
-      try {
-        const result = await store.dispatch('fetchQuarters', { offset: 0, limit: 100 })
-        const list = (result && result.data) ? result.data : []
-        quarters.value = list.map(q => ({
-          label: q.name + ' — ' + formatDate(q.date),
-          value: q.quarter_id
-        }))
-      } catch (e) {
-        quarters.value = []
-      }
-    }
-
+    // --- Loading --------------------------------------------------------
     const fetchTopics = async () => {
       loading.value = true
       topics.value = await store.dispatch('fetchTestTopics')
       loading.value = false
     }
+    const fetchQuarters = async () => {
+      try {
+        const result = await store.dispatch('fetchQuarters', { offset: 0, limit: 100 })
+        const list = (result && result.data) ? result.data : []
+        quarters.value = list.map(q => ({ label: q.name + ' — ' + formatDate(q.date), value: q.quarter_id }))
+      } catch (e) {
+        quarters.value = []
+      }
+    }
 
-    const openAddDialog = () => {
-      newTopic.value = { topic_name: '', quarter_id: null }
-      showAddDialog.value = true
+    // --- Add / Edit -----------------------------------------------------
+    const openAdd = () => {
+      form.value = emptyForm()
+      dialogMode.value = 'add'
+      submitted.value = false
+      showDialog.value = true
     }
-    const addTopic = async () => {
-      await store.dispatch('addTestTopic', newTopic.value)
-      showAddDialog.value = false
-      fetchTopics()
+    const openEdit = (topic) => {
+      form.value = { test_topic_id: topic.test_topic_id, topic_name: topic.topic_name, quarter_id: topic.quarter_id || null }
+      dialogMode.value = 'edit'
+      submitted.value = false
+      showDialog.value = true
     }
-    const openEditDialog = (topic) => {
-      editTopic.value = { ...topic, quarter_id: topic.quarter_id || null }
-      showEditDialog.value = true
+    const save = async () => {
+      submitted.value = true
+      if (!form.value.topic_name.trim()) {
+        toast.add({ severity: 'warn', summary: 'To‘ldirilmagan', detail: 'Mavzu nomini kiriting.', life: 3000 })
+        return
+      }
+      saving.value = true
+      let res
+      if (dialogMode.value === 'add') {
+        res = await store.dispatch('addTestTopic', form.value)
+      } else {
+        res = await store.dispatch('editTestTopic', { id: form.value.test_topic_id, topicData: form.value })
+      }
+      saving.value = false
+
+      if (res) {
+        toast.add({ severity: 'success', summary: 'Saqlandi', detail: dialogMode.value === 'add' ? 'Mavzu qo‘shildi.' : 'Mavzu yangilandi.', life: 2500 })
+        showDialog.value = false
+        await fetchTopics()
+      } else {
+        toast.add({ severity: 'error', summary: 'Xatolik', detail: 'Saqlashda xatolik yuz berdi.', life: 4000 })
+      }
     }
-    const updateTopic = async () => {
-      await store.dispatch('editTestTopic', { id: editTopic.value.test_topic_id, topicData: editTopic.value })
-      showEditDialog.value = false
-      fetchTopics()
-    }
+
+    // --- Delete ---------------------------------------------------------
     const confirmDelete = (topic) => {
-      deleteTopicId.value = topic.test_topic_id
+      deleteId.value = topic.test_topic_id
       showDeleteDialog.value = true
     }
     const deleteTopic = async () => {
-      await store.dispatch('deleteTestTopic', deleteTopicId.value)
+      deleting.value = true
+      const res = await store.dispatch('deleteTestTopic', deleteId.value)
+      deleting.value = false
       showDeleteDialog.value = false
-      fetchTopics()
+      if (res) {
+        toast.add({ severity: 'success', summary: 'O‘chirildi', detail: 'Mavzu o‘chirildi.', life: 2500 })
+        await fetchTopics()
+      } else {
+        toast.add({ severity: 'error', summary: 'Xatolik', detail: 'O‘chirishda xatolik yuz berdi.', life: 4000 })
+      }
     }
 
     onMounted(() => {
@@ -141,23 +182,12 @@ export default {
     })
 
     return {
-      topics,
-      quarters,
-      loading,
-      showAddDialog,
-      showEditDialog,
-      showDeleteDialog,
-      newTopic,
-      editTopic,
-      openAddDialog,
-      addTopic,
-      openEditDialog,
-      updateTopic,
-      confirmDelete,
-      deleteTopic,
-      formatDate
+      topics, quarters, loading,
+      showDialog, dialogMode, form, submitted, saving,
+      showDeleteDialog, deleting,
+      formatDate, openAdd, openEdit, save, confirmDelete, deleteTopic,
     }
-  }
+  },
 }
 </script>
 
@@ -165,7 +195,68 @@ export default {
 .test-topics-container {
   padding: 2rem;
 }
-.mb-3 {
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
-</style> 
+.page-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.page-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.table-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 16px;
+}
+
+.quarter-pill {
+  display: inline-block;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.muted {
+  color: #94a3b8;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #334155;
+}
+.req {
+  color: #e53935;
+}
+.w-full {
+  width: 100%;
+}
+.mr-1 {
+  margin-right: 4px;
+}
+</style>

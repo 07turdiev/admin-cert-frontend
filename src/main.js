@@ -26,6 +26,7 @@ import Badge from 'primevue/badge'
 import Avatar from 'primevue/avatar'
 import ProgressSpinner from 'primevue/progressspinner'
 import Textarea from 'primevue/textarea'
+import Tooltip from 'primevue/tooltip'
 
 const app = createApp(App)
 
@@ -48,5 +49,8 @@ app.component('Badge', Badge)
 app.component('Avatar', Avatar)
 app.component('ProgressSpinner', ProgressSpinner)
 app.component('Textarea', Textarea)
+
+// Register directives
+app.directive('tooltip', Tooltip)
 
 app.mount('#app') 
