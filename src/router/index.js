@@ -7,7 +7,6 @@ import Dashboard from '../views/Dashboard.vue'
 import CertifiedUsers from '../views/CertifiedUsers.vue'
 import Applications from '../views/Applications.vue'
 import Organizations from '../views/Organizations.vue'
-import TestTopics from '../views/TestTopics.vue'
 import TestQuestions from '../views/TestQuestions.vue'
 import Quarters from '../views/Quarters.vue'
 
@@ -46,10 +45,9 @@ const routes = [
         meta: { requiresAuth: true }
       },
       {
+        // Test bo'limlari olib tashlangan — eski havola savollar sahifasiga yo'naltiriladi
         path: 'test-topics',
-        name: 'TestTopics',
-        component: TestTopics,
-        meta: { requiresAuth: true }
+        redirect: { name: 'TestQuestions' }
       },
       {
         path: 'test-questions',
