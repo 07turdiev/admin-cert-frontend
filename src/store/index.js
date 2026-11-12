@@ -333,12 +333,13 @@ const store = createStore({
     // Fetch organizations with filters
     async fetchOrganizations({ getters }, options = {}) {
       try {
-        const { searchWord, region_id, offset = 0, limit = 10 } = options
+        const { searchWord, region_id, status, offset = 0, limit = 10 } = options
         
         // Build query params
         const params = { token: getters.getToken }
         if (searchWord) params.searchWord = searchWord
         if (region_id) params.region_id = region_id
+        if (status) params.status = status
         
         // Add pagination params
         params.offset = offset
@@ -394,6 +395,7 @@ const store = createStore({
         console.error('Error adding organization:', error)
         return {
           success: false,
+          message: (error.response && error.response.data && error.response.data.result && error.response.data.result.message) || null,
           error: (error.response && error.response.data && error.response.data.error) || error.message || 'Unknown error'
         }
       }
@@ -427,6 +429,7 @@ const store = createStore({
         console.error('Error editing organization:', error)
         return {
           success: false,
+          message: (error.response && error.response.data && error.response.data.result && error.response.data.result.message) || null,
           error: (error.response && error.response.data && error.response.data.error) || error.message || 'Unknown error'
         }
       }
@@ -457,6 +460,7 @@ const store = createStore({
         console.error('Error deleting organization:', error)
         return {
           success: false,
+          message: (error.response && error.response.data && error.response.data.result && error.response.data.result.message) || null,
           error: (error.response && error.response.data && error.response.data.error) || error.message || 'Unknown error'
         }
       }

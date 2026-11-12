@@ -34,6 +34,16 @@
           </div>
           
           <div class="filter-container">
+            <Dropdown v-model="filters.status"
+                      :options="statusOptions"
+                      :placeholder="$t('status')"
+                      optionLabel="label"
+                      optionValue="value"
+                      @change="applyFilters"
+                      class="p-inputtext-sm filter-dropdown" />
+          </div>
+
+          <div class="filter-container">
             <Button icon="pi pi-filter-slash" 
                    :label="$t('clear_filters')" 
                    class="p-button-outlined p-button-sm"
@@ -65,6 +75,13 @@
           <Column field="organization_id" :header="$t('id')" sortable></Column>
           <Column field="name_uz" :header="$t('organization_name')" sortable></Column>
           <Column field="inn" :header="$t('inn')" sortable></Column>
+          <Column field="status" :header="$t('status')">
+            <template #body="slotProps">
+              <span class="status-pill" :class="slotProps.data.status === 'inactive' ? 'status-pill--off' : 'status-pill--on'">
+                {{ statusLabel(slotProps.data.status) }}
+              </span>
+            </template>
+          </Column>
           <Column field="region_id" :header="$t('region')">
             <template #body="slotProps">
               {{ getRegionName(slotProps.data.region_id) }}
@@ -281,6 +298,16 @@
                    optionValue="region_id"
                    :placeholder="$t('select_region')" />
         </div>
+
+        <div class="field">
+          <label for="edit_status">{{ $t('status') }}</label>
+          <Dropdown id="edit_status"
+                   v-model="editingOrganization.status"
+                   :options="statusOptions.filter(o => o.value)"
+                   optionLabel="label"
+                   optionValue="value" />
+          <small class="field-hint">Nofaol tashkilot ariza formasida ko‘rinmaydi, lekin eski arizalar va sertifikatlarda saqlanib qoladi.</small>
+        </div>
       </div>
       
       <template #footer>
@@ -358,8 +385,17 @@ export default {
     // Filter state
     const filters = ref({
       searchWord: '',
-      region_id: null
+      region_id: null,
+      status: null
     })
+
+    // Holat: faqat faol tashkilotlar ariza formasida ko'rinadi
+    const statusOptions = [
+      { label: 'Barcha holatlar', value: null },
+      { label: 'Faol', value: 'active' },
+      { label: 'Nofaol', value: 'inactive' }
+    ]
+    const statusLabel = (status) => (status === 'inactive' ? 'Nofaol' : 'Faol')
     
     // Open add new organization dialog
     const openNewOrganizationDialog = () => {
@@ -421,8 +457,8 @@ export default {
           toast.add({
             severity: 'error',
             summary: i18n.t('error'),
-            detail: i18n.t('failed_to_add_organization'),
-            life: 3000
+            detail: result.message || i18n.t('failed_to_add_organization'),
+            life: 6000
           })
         }
       } catch (error) {
@@ -467,7 +503,8 @@ export default {
             direction_en: editingOrganization.value.direction_en,
             cadastral_number: editingOrganization.value.cadastral_number,
             inn: editingOrganization.value.inn,
-            region_id: editingOrganization.value.region_id
+            region_id: editingOrganization.value.region_id,
+            status: editingOrganization.value.status || 'active'
           }
         })
         
@@ -487,8 +524,8 @@ export default {
           toast.add({
             severity: 'error',
             summary: i18n.t('error'),
-            detail: i18n.t('failed_to_update_organization'),
-            life: 3000
+            detail: result.message || i18n.t('failed_to_update_organization'),
+            life: 6000
           })
         }
       } catch (error) {
@@ -529,8 +566,8 @@ export default {
           toast.add({
             severity: 'error',
             summary: i18n.t('error'),
-            detail: i18n.t('failed_to_delete_organization'),
-            life: 3000
+            detail: result.message || i18n.t('failed_to_delete_organization'),
+            life: 6000
           })
         }
       } catch (error) {
@@ -586,6 +623,7 @@ export default {
       const result = await store.dispatch('fetchOrganizations', { 
         searchWord: filters.value.searchWord,
         region_id: filters.value.region_id,
+        status: filters.value.status,
         offset: offset,
         limit: rowsPerPage.value
       })
@@ -607,7 +645,8 @@ export default {
     const clearFilters = () => {
       filters.value = {
         searchWord: '',
-        region_id: null
+        region_id: null,
+        status: null
       }
       first.value = 0
       applyFilters()
@@ -653,6 +692,8 @@ export default {
       onRowClick,
       filters,
       regionOptions,
+      statusOptions,
+      statusLabel,
       getRegionName,
       applyFilters,
       applyFiltersDebounced,
@@ -681,6 +722,24 @@ export default {
 </script>
 
 <style scoped>
+.status-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.status-pill--on {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+.status-pill--off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.field-hint {
+  color: #64748b;
+}
 .organizations-container {
   display: flex;
   flex-direction: column;
