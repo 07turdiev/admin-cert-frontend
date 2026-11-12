@@ -39,13 +39,13 @@
           <li>
             <router-link to="/test-topics" class="nav-link">
               <i class="pi pi-book"></i>
-              <span>Test Topics</span>
+              <span>Test bo‘limlari</span>
             </router-link>
           </li>
           <li>
             <router-link to="/test-questions" class="nav-link">
               <i class="pi pi-question-circle"></i>
-              <span>Test Questions</span>
+              <span>Test savollari</span>
             </router-link>
           </li>
           <li>
@@ -93,8 +93,8 @@ export default {
       if (routeName === 'Applications') return 'applications'
       if (routeName === 'CertifiedUsers') return 'certified_users'
       if (routeName === 'Organizations') return 'organizations'
-      if (routeName === 'TestTopics') return 'Test Topics'
-      if (routeName === 'TestQuestions') return 'Test Questions'
+      if (routeName === 'TestTopics') return 'Test bo‘limlari'
+      if (routeName === 'TestQuestions') return 'Test savollari'
       if (routeName === 'Quarters') return 'quarters'
       return 'dashboard'
     })

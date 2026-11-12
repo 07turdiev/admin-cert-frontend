@@ -825,7 +825,8 @@ export default {
             grouped.push({
               ...row,
               attemptNumber: idx + 1,
-              topic: row.test_topic && row.test_topic.topic_name ? row.test_topic.topic_name : (row.test_topic && row.test_topic.name ? row.test_topic.name : row.test_topic_id)
+              // Yangi testlar bo'limga bog'lanmagan (barcha savollardan tasodifiy 20 ta)
+              topic: row.test_topic && row.test_topic.topic_name ? row.test_topic.topic_name : (row.test_topic_id ? row.test_topic_id : 'Umumiy test')
             });
           });
         });

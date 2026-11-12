@@ -3,8 +3,20 @@
     <Toast />
 
     <div class="page-header">
-      <h2 class="page-title">Test savollari</h2>
-      <p class="page-subtitle">Har bir mavzu bo‘yicha savollarni qo‘shing, tahrirlang yoki o‘chiring.</p>
+      <h2 class="page-title">Test savollari bazasi</h2>
+      <p class="page-subtitle">Savollarni bo‘limlarga qo‘shing. Har bir foydalanuvchiga barcha savollardan
+        tasodifiy {{ questionsPerTest }} tasi beriladi (o‘tish bali — {{ passScore }} ta to‘g‘ri javob).</p>
+    </div>
+
+    <div class="pool-summary" :class="{ 'pool-summary--warn': poolTooSmall }">
+      <i class="pi" :class="poolTooSmall ? 'pi-exclamation-triangle' : 'pi-database'"></i>
+      <div>
+        <div class="pool-summary-count">Bazada jami: <b>{{ loading ? '…' : totalQuestions }}</b> ta savol</div>
+        <div v-if="poolTooSmall" class="pool-summary-hint">
+          Kamida {{ questionsPerTest }} ta savol kiriting — hozircha foydalanuvchilarga faqat {{ totalQuestions }} ta savol tushadi.
+        </div>
+        <div v-else class="pool-summary-hint">Savollar qancha ko‘p bo‘lsa, har bir foydalanuvchining testi shuncha farqli bo‘ladi.</div>
+      </div>
     </div>
 
     <Accordion :multiple="true">
@@ -51,7 +63,7 @@
     </Accordion>
 
     <p v-if="!topics.length && !loading" class="no-topics">
-      Avval <b>Test mavzulari</b> bo‘limidan mavzu qo‘shing.
+      Avval <b>Test bo‘limlari</b> sahifasidan kamida bitta bo‘lim qo‘shing.
     </p>
 
     <!-- Add / Edit Dialog (yagona) -->
@@ -99,7 +111,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useToast } from 'primevue/usetoast'
 import Accordion from 'primevue/accordion'
@@ -111,6 +123,10 @@ const ANSWER_KEYS = [
   { key: 'answer_3', letter: 'C' },
   { key: 'answer_4', letter: 'D' },
 ]
+
+// Backend bilan bir xil: certificate_backend/src/helpers/test.js
+const QUESTIONS_PER_TEST = 20
+const PASS_SCORE = 15
 
 const emptyForm = (topicId = null) => ({
   test_question_id: null,
@@ -144,6 +160,11 @@ export default {
     const showDeleteDialog = ref(false)
     const deleting = ref(false)
     const deleteTarget = reactive({ id: null, topicId: null })
+
+    const totalQuestions = computed(() =>
+      Object.values(questionsByTopic).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0)
+    )
+    const poolTooSmall = computed(() => !loading.value && totalQuestions.value < QUESTIONS_PER_TEST)
 
     // --- Loading --------------------------------------------------------
     const fetchTopicsAndQuestions = async () => {
@@ -234,7 +255,8 @@ export default {
     onMounted(fetchTopicsAndQuestions)
 
     return {
-      topics, questionsByTopic, loadingTopics, loading,
+      topics, questionsByTopic, loadingTopics, loading, totalQuestions, poolTooSmall,
+      questionsPerTest: QUESTIONS_PER_TEST, passScore: PASS_SCORE,
       showDialog, dialogMode, form, submitted, saving,
       showDeleteDialog, deleting,
       answerKeys: ANSWER_KEYS,
@@ -264,6 +286,39 @@ export default {
   margin: 4px 0 0;
   color: #64748b;
   font-size: 0.9rem;
+}
+
+/* Question pool summary */
+.pool-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 1.25rem;
+  border-radius: 12px;
+  background: #eef4fd;
+  border: 1px solid #d3e1f7;
+  color: #1e3a6e;
+}
+.pool-summary .pi {
+  font-size: 1.4rem;
+  color: #216ad7;
+}
+.pool-summary--warn {
+  background: #fff6e5;
+  border-color: #f5d49a;
+  color: #7a4b00;
+}
+.pool-summary--warn .pi {
+  color: #d97706;
+}
+.pool-summary-count {
+  font-size: 1rem;
+}
+.pool-summary-hint {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin-top: 2px;
 }
 
 /* Accordion header */
